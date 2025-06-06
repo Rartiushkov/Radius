@@ -20,6 +20,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
   LocationData? _clientLocation;
   final Location _location = Location();
   Timer? _movementTimer;
+  BitmapDescriptor? _specialistIcon;
 
   final List<_Specialist> _specialists = [
     _Specialist(id: '1', position: const LatLng(37.4275, -122.0840)),
@@ -32,7 +33,32 @@ class _RideMapScreenState extends State<RideMapScreen> {
   @override
   void initState() {
     super.initState();
+    _loadSpecialistIcon();
     _initLocation();
+  }
+
+  Future<void> _loadSpecialistIcon() async {
+    String asset;
+    switch (widget.serviceType.toLowerCase()) {
+      case 'doctor':
+        asset = 'assets/images/doctor.png';
+        break;
+      case 'mechanic':
+        asset = 'assets/images/mechanic.png';
+        break;
+      case 'lawyer':
+        asset = 'assets/images/lawyer.png';
+        break;
+      default:
+        asset = 'assets/images/specialist.png';
+    }
+    final icon = await BitmapDescriptor.fromAssetImage(
+      const ImageConfiguration(size: Size(64, 64)),
+      asset,
+    );
+    setState(() {
+      _specialistIcon = icon;
+    });
   }
 
   Future<void> _initLocation() async {
@@ -100,6 +126,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
           });
         },
         markers: _buildMarkers(clientLatLng),
+        polylines: _buildPolylines(clientLatLng),
       ),
     );
   }
@@ -119,12 +146,27 @@ class _RideMapScreenState extends State<RideMapScreen> {
           markerId: MarkerId('specialist_${specialist.id}'),
           position: specialist.position,
           infoWindow: InfoWindow(title: 'Specialist ${specialist.id}'),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          icon: _specialistIcon ??
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
         ),
       );
     }
 
     return markers;
+  }
+
+  Set<Polyline> _buildPolylines(LatLng clientLatLng) {
+    final Set<Polyline> lines = {};
+    int idx = 0;
+    for (var specialist in _specialists) {
+      lines.add(Polyline(
+        polylineId: PolylineId('line_${idx++}'),
+        points: [specialist.position, clientLatLng],
+        color: Colors.blueAccent,
+        width: 3,
+      ));
+    }
+    return lines;
   }
 }
 

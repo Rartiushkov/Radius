@@ -17,10 +17,12 @@ class _SpecialistScreenState extends State<SpecialistScreen> {
   LatLng _clientLocation = const LatLng(37.42796133580664, -122.085749655962);
   bool _isOrderAccepted = false;
   Timer? _movementTimer;
+  Set<Polyline> _lines = {};
 
   @override
   void initState() {
     super.initState();
+    _updatePolyline();
     _startSpecialistMovement();
   }
 
@@ -31,8 +33,20 @@ class _SpecialistScreenState extends State<SpecialistScreen> {
           _specialistLocation.latitude + 0.0001,
           _specialistLocation.longitude - 0.0001,
         );
+        _updatePolyline();
       });
     });
+  }
+
+  void _updatePolyline() {
+    _lines = {
+      Polyline(
+        polylineId: const PolylineId('route'),
+        points: [_specialistLocation, _clientLocation],
+        color: Colors.blueAccent,
+        width: 3,
+      )
+    };
   }
 
   @override
@@ -76,6 +90,7 @@ class _SpecialistScreenState extends State<SpecialistScreen> {
                 Marker(markerId: const MarkerId('specialist'), position: _specialistLocation, infoWindow: const InfoWindow(title: 'Specialist')),
                 Marker(markerId: const MarkerId('client'), position: _clientLocation, infoWindow: const InfoWindow(title: 'Client')),
               },
+              polylines: _lines,
             ),
             Positioned(
               bottom: 20,
