@@ -88,7 +88,17 @@ class _RideMapScreenState extends State<RideMapScreen> {
           target: clientLatLng,
           zoom: 15,
         ),
+        myLocationEnabled: true,
+        myLocationButtonEnabled: true,
         onMapCreated: (controller) => _mapController = controller,
+        onTap: (LatLng pos) {
+          setState(() {
+            _clientLocation = LocationData.fromMap({
+              'latitude': pos.latitude,
+              'longitude': pos.longitude,
+            });
+          });
+        },
         markers: _buildMarkers(clientLatLng),
       ),
     );
