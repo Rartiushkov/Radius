@@ -1,0 +1,49 @@
+name: new_app
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.7.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  firebase_core: ^2.30.0
+  firebase_auth: ^4.17.4
+  cloud_firestore: ^4.16.0
+  google_maps_flutter: ^2.5.0
+  location: ^5.0.3
+  geolocator: ^10.1.0
+  geocoding: ^2.1.0
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  flutter_native_splash: ^2.4.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/user.png
+    - assets/images/specialist.png
+    - assets/images/doctor.png
+    - assets/images/mechanic.png
+    - assets/images/lawyer.png
+    - assets/images/doctor_nearby.png
+    - assets/images/car_help.png
+    - assets/images/lawyer_help.png
+
+flutter_native_splash:
+  color: "#ffffff"
+  image: assets/images/app_icon.png
+  branding: assets/images/branding_text.png
+  android: true
+  ios: true
+  web: false
+  android_gravity: center
+  ios_content_mode: center
