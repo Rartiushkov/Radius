@@ -22,13 +22,12 @@ class _RideMapScreenState extends State<RideMapScreen> {
   Timer? _movementTimer;
   BitmapDescriptor? _specialistIcon;
 
+  // Only a single specialist is shown on the map. Additional demo
+  // markers were removed so users don't see multiple moving points.
   final List<_Specialist> _specialists = [
     _Specialist(id: '1', position: const LatLng(37.4275, -122.0840)),
-    _Specialist(id: '2', position: const LatLng(37.4285, -122.0850)),
-    _Specialist(id: '3', position: const LatLng(37.4265, -122.0830)),
   ];
 
-  static const LatLng defaultLocation = LatLng(37.4219999, -122.0840575); // Googleplex
 
   @override
   void initState() {
@@ -52,8 +51,11 @@ class _RideMapScreenState extends State<RideMapScreen> {
       default:
         asset = 'assets/images/specialist.png';
     }
+
+    // Load the custom marker at a smaller size so the picture doesn't
+    // cover too much of the map UI.
     final icon = await BitmapDescriptor.fromAssetImage(
-      const ImageConfiguration(size: Size(64, 64)),
+      const ImageConfiguration(size: Size(40, 40)),
       asset,
     );
     setState(() {
@@ -70,23 +72,18 @@ class _RideMapScreenState extends State<RideMapScreen> {
     } catch (e) {
       print('Location error: $e');
       setState(() {
-        _clientLocation = LocationData.fromMap({
-          "latitude": defaultLocation.latitude,
-          "longitude": defaultLocation.longitude,
-        });
+        _clientLocation = null;
       });
     }
     _startSpecialistMovement();
   }
 
   void _startSpecialistMovement() {
+    if (_clientLocation == null) return;
     _movementTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
       setState(() {
         for (var specialist in _specialists) {
-          specialist.moveTowards(_clientLocation ?? LocationData.fromMap({
-            "latitude": defaultLocation.latitude,
-            "longitude": defaultLocation.longitude,
-          }));
+          specialist.moveTowards(_clientLocation!);
         }
       });
     });
@@ -100,10 +97,16 @@ class _RideMapScreenState extends State<RideMapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final LatLng clientLatLng = _clientLocation != null
-        ? LatLng(_clientLocation!.latitude ?? defaultLocation.latitude,
-        _clientLocation!.longitude ?? defaultLocation.longitude)
-        : defaultLocation;
+    if (_clientLocation == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final LatLng clientLatLng = LatLng(
+      _clientLocation!.latitude!,
+      _clientLocation!.longitude!,
+    );
 
     return Scaffold(
       appBar: AppBar(

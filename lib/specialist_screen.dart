@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:location/location.dart';
 import 'user_account_screen.dart';
 
 class SpecialistScreen extends StatefulWidget {
@@ -13,7 +14,8 @@ class SpecialistScreen extends StatefulWidget {
 
 class _SpecialistScreenState extends State<SpecialistScreen> {
   late GoogleMapController _mapController;
-  LatLng _specialistLocation = const LatLng(37.4219999, -122.0840575);
+  final Location _location = Location();
+  LatLng? _specialistLocation;
   LatLng _clientLocation = const LatLng(37.42796133580664, -122.085749655962);
   bool _isOrderAccepted = false;
   Timer? _movementTimer;
@@ -22,16 +24,30 @@ class _SpecialistScreenState extends State<SpecialistScreen> {
   @override
   void initState() {
     super.initState();
-    _updatePolyline();
-    _startSpecialistMovement();
+
+    _initLocation();
+  }
+
+  Future<void> _initLocation() async {
+    try {
+      final locData = await _location.getLocation();
+      setState(() {
+        _specialistLocation = LatLng(locData.latitude!, locData.longitude!);
+      });
+      _updatePolyline();
+      _startSpecialistMovement();
+    } catch (e) {
+      print('Location error: $e');
+    }
   }
 
   void _startSpecialistMovement() {
+    if (_specialistLocation == null) return;
     _movementTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
       setState(() {
         _specialistLocation = LatLng(
-          _specialistLocation.latitude + 0.0001,
-          _specialistLocation.longitude - 0.0001,
+          _specialistLocation!.latitude + 0.0001,
+          _specialistLocation!.longitude - 0.0001,
         );
         _updatePolyline();
       });
@@ -39,12 +55,11 @@ class _SpecialistScreenState extends State<SpecialistScreen> {
   }
 
   void _updatePolyline() {
+    if (_specialistLocation == null) return;
     _lines = {
       Polyline(
         polylineId: const PolylineId('route'),
-        points: [_specialistLocation, _clientLocation],
-        color: Colors.blueAccent,
-        width: 3,
+        points: [_specialistLocation!, _clientLocation],
       )
     };
   }
@@ -71,6 +86,12 @@ class _SpecialistScreenState extends State<SpecialistScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_specialistLocation == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('Specialist Dashboard')),
       body: GestureDetector(
@@ -82,12 +103,12 @@ class _SpecialistScreenState extends State<SpecialistScreen> {
         child: Stack(
           children: [
             GoogleMap(
-              initialCameraPosition: CameraPosition(target: _specialistLocation, zoom: 14),
+              initialCameraPosition: CameraPosition(target: _specialistLocation!, zoom: 14),
               onMapCreated: (controller) {
                 _mapController = controller;
               },
               markers: {
-                Marker(markerId: const MarkerId('specialist'), position: _specialistLocation, infoWindow: const InfoWindow(title: 'Specialist')),
+                Marker(markerId: const MarkerId('specialist'), position: _specialistLocation!, infoWindow: const InfoWindow(title: 'Specialist')),
                 Marker(markerId: const MarkerId('client'), position: _clientLocation, infoWindow: const InfoWindow(title: 'Client')),
               },
               polylines: _lines,
