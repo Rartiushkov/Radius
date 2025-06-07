@@ -20,19 +20,46 @@ class _RideMapScreenState extends State<RideMapScreen> {
   LocationData? _clientLocation;
   final Location _location = Location();
   Timer? _movementTimer;
+  BitmapDescriptor? _specialistIcon;
 
+  // Only a single specialist is shown on the map. Additional demo
+  // markers were removed so users don't see multiple moving points.
   final List<_Specialist> _specialists = [
     _Specialist(id: '1', position: const LatLng(37.4275, -122.0840)),
-    _Specialist(id: '2', position: const LatLng(37.4285, -122.0850)),
-    _Specialist(id: '3', position: const LatLng(37.4265, -122.0830)),
   ];
 
-  static const LatLng defaultLocation = LatLng(37.4219999, -122.0840575); // Googleplex
 
   @override
   void initState() {
     super.initState();
+    _loadSpecialistIcon();
     _initLocation();
+  }
+
+  Future<void> _loadSpecialistIcon() async {
+    String asset;
+    switch (widget.serviceType.toLowerCase()) {
+      case 'doctor':
+        asset = 'assets/images/doctor.png';
+        break;
+      case 'mechanic':
+        asset = 'assets/images/mechanic.png';
+        break;
+      case 'lawyer':
+        asset = 'assets/images/lawyer.png';
+        break;
+      default:
+        asset = 'assets/images/specialist.png';
+    }
+    // Load the custom marker at a smaller size so the picture doesn't
+    // cover too much of the map UI.
+    final icon = await BitmapDescriptor.fromAssetImage(
+      const ImageConfiguration(size: Size(40, 40)),
+      asset,
+    );
+    setState(() {
+      _specialistIcon = icon;
+    });
   }
 
   Future<void> _initLocation() async {
@@ -44,23 +71,18 @@ class _RideMapScreenState extends State<RideMapScreen> {
     } catch (e) {
       print('Location error: $e');
       setState(() {
-        _clientLocation = LocationData.fromMap({
-          "latitude": defaultLocation.latitude,
-          "longitude": defaultLocation.longitude,
-        });
+        _clientLocation = null;
       });
     }
     _startSpecialistMovement();
   }
 
   void _startSpecialistMovement() {
+    if (_clientLocation == null) return;
     _movementTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
       setState(() {
         for (var specialist in _specialists) {
-          specialist.moveTowards(_clientLocation ?? LocationData.fromMap({
-            "latitude": defaultLocation.latitude,
-            "longitude": defaultLocation.longitude,
-          }));
+          specialist.moveTowards(_clientLocation!);
         }
       });
     });
@@ -74,10 +96,16 @@ class _RideMapScreenState extends State<RideMapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final LatLng clientLatLng = _clientLocation != null
-        ? LatLng(_clientLocation!.latitude ?? defaultLocation.latitude,
-        _clientLocation!.longitude ?? defaultLocation.longitude)
-        : defaultLocation;
+    if (_clientLocation == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final LatLng clientLatLng = LatLng(
+      _clientLocation!.latitude!,
+      _clientLocation!.longitude!,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -88,8 +116,19 @@ class _RideMapScreenState extends State<RideMapScreen> {
           target: clientLatLng,
           zoom: 15,
         ),
+        myLocationEnabled: true,
+        myLocationButtonEnabled: true,
         onMapCreated: (controller) => _mapController = controller,
+        onTap: (LatLng pos) {
+          setState(() {
+            _clientLocation = LocationData.fromMap({
+              'latitude': pos.latitude,
+              'longitude': pos.longitude,
+            });
+          });
+        },
         markers: _buildMarkers(clientLatLng),
+        polylines: _buildPolylines(clientLatLng),
       ),
     );
   }
@@ -109,12 +148,27 @@ class _RideMapScreenState extends State<RideMapScreen> {
           markerId: MarkerId('specialist_${specialist.id}'),
           position: specialist.position,
           infoWindow: InfoWindow(title: 'Specialist ${specialist.id}'),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          icon: _specialistIcon ??
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
         ),
       );
     }
 
     return markers;
+  }
+
+  Set<Polyline> _buildPolylines(LatLng clientLatLng) {
+    final Set<Polyline> lines = {};
+    int idx = 0;
+    for (var specialist in _specialists) {
+      lines.add(Polyline(
+        polylineId: PolylineId('line_${idx++}'),
+        points: [specialist.position, clientLatLng],
+        color: Colors.blueAccent,
+        width: 3,
+      ));
+    }
+    return lines;
   }
 }
 
