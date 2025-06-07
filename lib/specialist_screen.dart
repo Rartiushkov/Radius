@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:location/location.dart';
 import 'user_account_screen.dart';
 
 class SpecialistScreen extends StatefulWidget {
@@ -13,26 +14,70 @@ class SpecialistScreen extends StatefulWidget {
 
 class _SpecialistScreenState extends State<SpecialistScreen> {
   late GoogleMapController _mapController;
-  LatLng _specialistLocation = const LatLng(37.4219999, -122.0840575);
+  final Location _location = Location();
+  LatLng? _specialistLocation;
   LatLng _clientLocation = const LatLng(37.42796133580664, -122.085749655962);
   bool _isOrderAccepted = false;
   Timer? _movementTimer;
+  Set<Polyline> _lines = {};
 
   @override
   void initState() {
     super.initState();
-    _startSpecialistMovement();
+    _initLocation();
+  }
+
+  Future<void> _initLocation() async {
+    try {
+      bool serviceEnabled = await _location.serviceEnabled();
+      if (!serviceEnabled) {
+        serviceEnabled = await _location.requestService();
+        if (!serviceEnabled) return;
+      }
+
+      PermissionStatus permission = await _location.hasPermission();
+      if (permission == PermissionStatus.denied) {
+        permission = await _location.requestPermission();
+        if (permission != PermissionStatus.granted) return;
+      }
+
+      final locData = await _location.getLocation();
+      setState(() {
+        _specialistLocation = LatLng(locData.latitude!, locData.longitude!);
+      });
+      _updatePolyline();
+    } catch (e) {
+      print('Location error: $e');
+    }
   }
 
   void _startSpecialistMovement() {
+    if (_specialistLocation == null) return;
     _movementTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
       setState(() {
         _specialistLocation = LatLng(
-          _specialistLocation.latitude + 0.0001,
-          _specialistLocation.longitude - 0.0001,
+          _specialistLocation!.latitude + 0.0001,
+          _specialistLocation!.longitude - 0.0001,
         );
+        _updatePolyline();
       });
     });
+  }
+
+  void _updatePolyline() {
+    if (_specialistLocation == null) return;
+    if (_isOrderAccepted) {
+      _lines = {
+        Polyline(
+          polylineId: const PolylineId('route'),
+          points: [_specialistLocation!, _clientLocation],
+          color: Colors.blueAccent,
+          width: 3,
+        )
+      };
+    } else {
+      _lines = {};
+    }
   }
 
   @override
@@ -57,6 +102,12 @@ class _SpecialistScreenState extends State<SpecialistScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_specialistLocation == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('Specialist Dashboard')),
       body: GestureDetector(
@@ -68,22 +119,30 @@ class _SpecialistScreenState extends State<SpecialistScreen> {
         child: Stack(
           children: [
             GoogleMap(
-              initialCameraPosition: CameraPosition(target: _specialistLocation, zoom: 14),
+              initialCameraPosition: CameraPosition(target: _specialistLocation!, zoom: 14),
               onMapCreated: (controller) {
                 _mapController = controller;
               },
               markers: {
-                Marker(markerId: const MarkerId('specialist'), position: _specialistLocation, infoWindow: const InfoWindow(title: 'Specialist')),
+                Marker(markerId: const MarkerId('specialist'), position: _specialistLocation!, infoWindow: const InfoWindow(title: 'Specialist')),
                 Marker(markerId: const MarkerId('client'), position: _clientLocation, infoWindow: const InfoWindow(title: 'Client')),
               },
+              polylines: _lines,
             ),
             Positioned(
               bottom: 20,
               left: 20,
               right: 20,
               child: ElevatedButton(
-                onPressed: _isOrderAccepted ? null : () => setState(() => _isOrderAccepted = true),
-                child: Text(_isOrderAccepted ? 'Order Accepted' : 'Accept Order'),
+                onPressed: _isOrderAccepted
+                    ? null
+                    : () {
+                        setState(() => _isOrderAccepted = true);
+                        _updatePolyline();
+                        _startSpecialistMovement();
+                      },
+                child:
+                    Text(_isOrderAccepted ? 'Order Accepted' : 'Accept Order'),
               ),
             ),
           ],
