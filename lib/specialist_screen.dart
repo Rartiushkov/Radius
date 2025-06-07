@@ -26,10 +26,12 @@ class _SpecialistScreenState extends State<SpecialistScreen> {
     super.initState();
 
     _initLocation();
+
   }
 
   Future<void> _initLocation() async {
     try {
+
       bool serviceEnabled = await _location.serviceEnabled();
       if (!serviceEnabled) {
         serviceEnabled = await _location.requestService();
@@ -41,13 +43,13 @@ class _SpecialistScreenState extends State<SpecialistScreen> {
         permission = await _location.requestPermission();
         if (permission != PermissionStatus.granted) return;
       }
-
       final locData = await _location.getLocation();
       setState(() {
         _specialistLocation = LatLng(locData.latitude!, locData.longitude!);
       });
       _updatePolyline();
-      _startSpecialistMovement();
+
+
     } catch (e) {
       print('Location error: $e');
     }
@@ -68,12 +70,20 @@ class _SpecialistScreenState extends State<SpecialistScreen> {
 
   void _updatePolyline() {
     if (_specialistLocation == null) return;
-    _lines = {
-      Polyline(
-        polylineId: const PolylineId('route'),
-        points: [_specialistLocation!, _clientLocation],
-      )
-    };
+
+    if (_isOrderAccepted) {
+      _lines = {
+        Polyline(
+          polylineId: const PolylineId('route'),
+          points: [_specialistLocation!, _clientLocation],
+          color: Colors.blueAccent,
+          width: 3,
+        )
+      };
+    } else {
+      _lines = {};
+    }
+
   }
 
   @override
@@ -130,8 +140,15 @@ class _SpecialistScreenState extends State<SpecialistScreen> {
               left: 20,
               right: 20,
               child: ElevatedButton(
-                onPressed: _isOrderAccepted ? null : () => setState(() => _isOrderAccepted = true),
-                child: Text(_isOrderAccepted ? 'Order Accepted' : 'Accept Order'),
+                onPressed: _isOrderAccepted
+                    ? null
+                    : () {
+                        setState(() => _isOrderAccepted = true);
+                        _updatePolyline();
+                        _startSpecialistMovement();
+                      },
+                child:
+                    Text(_isOrderAccepted ? 'Order Accepted' : 'Accept Order'),
               ),
             ),
           ],
