@@ -54,7 +54,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
     // Load the custom marker at a smaller size so the picture doesn't
     // cover too much of the map UI.
     final icon = await BitmapDescriptor.fromAssetImage(
-      const ImageConfiguration(size: Size(40, 40)),
+      const ImageConfiguration(size: Size(24, 24)),
       asset,
     );
     setState(() {
@@ -64,6 +64,18 @@ class _RideMapScreenState extends State<RideMapScreen> {
 
   Future<void> _initLocation() async {
     try {
+      bool serviceEnabled = await _location.serviceEnabled();
+      if (!serviceEnabled) {
+        serviceEnabled = await _location.requestService();
+        if (!serviceEnabled) return;
+      }
+
+      PermissionStatus permission = await _location.hasPermission();
+      if (permission == PermissionStatus.denied) {
+        permission = await _location.requestPermission();
+        if (permission != PermissionStatus.granted) return;
+      }
+
       final locData = await _location.getLocation();
       setState(() {
         _clientLocation = locData;
