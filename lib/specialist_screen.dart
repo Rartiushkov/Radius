@@ -24,11 +24,11 @@ class _SpecialistScreenState extends State<SpecialistScreen> {
   @override
   void initState() {
     super.initState();
-    _initLocation();
   }
 
   Future<void> _initLocation() async {
     try {
+
       bool serviceEnabled = await _location.serviceEnabled();
       if (!serviceEnabled) {
         serviceEnabled = await _location.requestService();
@@ -40,7 +40,6 @@ class _SpecialistScreenState extends State<SpecialistScreen> {
         permission = await _location.requestPermission();
         if (permission != PermissionStatus.granted) return;
       }
-
       final locData = await _location.getLocation();
       setState(() {
         _specialistLocation = LatLng(locData.latitude!, locData.longitude!);
@@ -73,6 +72,7 @@ class _SpecialistScreenState extends State<SpecialistScreen> {
         points: [_specialistLocation!, _clientLocation],
         color: Colors.blueAccent,
         width: 3,
+
       )
     };
   }
