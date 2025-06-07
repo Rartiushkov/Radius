@@ -19,8 +19,12 @@ class _RideMapScreenState extends State<RideMapScreen> {
   late GoogleMapController _mapController;
   LocationData? _clientLocation;
   final Location _location = Location();
+  StreamSubscription<LocationData>? _locSub;
   Timer? _movementTimer;
   BitmapDescriptor? _specialistIcon;
+  bool _isRequesting = false;
+  bool _specialistAssigned = false;
+
 
   // Only a single specialist is shown on the map. Additional demo
   // markers were removed so users don't see multiple moving points.
@@ -52,10 +56,8 @@ class _RideMapScreenState extends State<RideMapScreen> {
         asset = 'assets/images/specialist.png';
     }
 
-    // Load the custom marker at a smaller size so the picture doesn't
-    // cover too much of the map UI.
     final icon = await BitmapDescriptor.fromAssetImage(
-      const ImageConfiguration(size: Size(40, 40)),
+      const ImageConfiguration(size: Size(24, 24)),
 
       asset,
     );
@@ -82,13 +84,18 @@ class _RideMapScreenState extends State<RideMapScreen> {
       setState(() {
         _clientLocation = locData;
       });
+
+      _locSub = _location.onLocationChanged.listen((newLoc) {
+        setState(() {
+          _clientLocation = newLoc;
+        });
+      });
     } catch (e) {
       print('Location error: $e');
       setState(() {
         _clientLocation = null;
       });
     }
-    _startSpecialistMovement();
   }
 
   void _startSpecialistMovement() {
@@ -102,9 +109,23 @@ class _RideMapScreenState extends State<RideMapScreen> {
     });
   }
 
+  Future<void> _requestSpecialist() async {
+    setState(() {
+      _isRequesting = true;
+    });
+    await Future.delayed(const Duration(seconds: 3));
+    if (!mounted) return;
+    setState(() {
+      _isRequesting = false;
+      _specialistAssigned = true;
+    });
+    _startSpecialistMovement();
+  }
+
   @override
   void dispose() {
     _movementTimer?.cancel();
+    _locSub?.cancel();
     super.dispose();
   }
 
@@ -123,26 +144,48 @@ class _RideMapScreenState extends State<RideMapScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${widget.serviceType} is on the way'),
+        title: Text(_specialistAssigned
+            ? '${widget.serviceType} on the way'
+            : 'Request ${widget.serviceType}'),
       ),
-      body: GoogleMap(
-        initialCameraPosition: CameraPosition(
-          target: clientLatLng,
-          zoom: 15,
-        ),
-        myLocationEnabled: true,
-        myLocationButtonEnabled: true,
-        onMapCreated: (controller) => _mapController = controller,
-        onTap: (LatLng pos) {
-          setState(() {
-            _clientLocation = LocationData.fromMap({
-              'latitude': pos.latitude,
-              'longitude': pos.longitude,
-            });
-          });
-        },
-        markers: _buildMarkers(clientLatLng),
-        polylines: _buildPolylines(clientLatLng),
+
+      body: Stack(
+        children: [
+          GoogleMap(
+            initialCameraPosition: CameraPosition(
+              target: clientLatLng,
+              zoom: 15,
+            ),
+            myLocationEnabled: true,
+            myLocationButtonEnabled: true,
+            onMapCreated: (controller) => _mapController = controller,
+            onTap: (LatLng pos) {
+              setState(() {
+                _clientLocation = LocationData.fromMap({
+                  'latitude': pos.latitude,
+                  'longitude': pos.longitude,
+                });
+              });
+            },
+            markers: _buildMarkers(clientLatLng),
+            polylines: _buildPolylines(clientLatLng),
+          ),
+          if (_isRequesting)
+            const Center(child: CircularProgressIndicator()),
+          Positioned(
+            bottom: 20,
+            left: 20,
+            right: 20,
+            child: ElevatedButton(
+              onPressed:
+                  _specialistAssigned || _isRequesting ? null : _requestSpecialist,
+              child: Text(
+                _specialistAssigned ? 'Specialist en route' : 'Request Specialist',
+              ),
+            ),
+          ),
+        ],
+
       ),
     );
   }
@@ -156,16 +199,20 @@ class _RideMapScreenState extends State<RideMapScreen> {
       )
     };
 
-    for (var specialist in _specialists) {
-      markers.add(
-        Marker(
-          markerId: MarkerId('specialist_${specialist.id}'),
-          position: specialist.position,
-          infoWindow: InfoWindow(title: 'Specialist ${specialist.id}'),
-          icon: _specialistIcon ??
-              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-        ),
-      );
+
+    if (_specialistAssigned) {
+      for (var specialist in _specialists) {
+        markers.add(
+          Marker(
+            markerId: MarkerId('specialist_${specialist.id}'),
+            position: specialist.position,
+            infoWindow: InfoWindow(title: 'Specialist ${specialist.id}'),
+            icon: _specialistIcon ??
+                BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          ),
+        );
+      }
+
     }
 
     return markers;
@@ -173,14 +220,18 @@ class _RideMapScreenState extends State<RideMapScreen> {
 
   Set<Polyline> _buildPolylines(LatLng clientLatLng) {
     final Set<Polyline> lines = {};
-    int idx = 0;
-    for (var specialist in _specialists) {
-      lines.add(Polyline(
-        polylineId: PolylineId('line_${idx++}'),
-        points: [specialist.position, clientLatLng],
-        color: Colors.blueAccent,
-        width: 3,
-      ));
+
+    if (_specialistAssigned) {
+      int idx = 0;
+      for (var specialist in _specialists) {
+        lines.add(Polyline(
+          polylineId: PolylineId('line_${idx++}'),
+          points: [specialist.position, clientLatLng],
+          color: Colors.blueAccent,
+          width: 3,
+        ));
+      }
+
     }
     return lines;
   }
