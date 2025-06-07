@@ -25,6 +25,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
   bool _isRequesting = false;
   bool _specialistAssigned = false;
 
+
   // Only a single specialist is shown on the map. Additional demo
   // markers were removed so users don't see multiple moving points.
   final List<_Specialist> _specialists = [
@@ -54,10 +55,10 @@ class _RideMapScreenState extends State<RideMapScreen> {
       default:
         asset = 'assets/images/specialist.png';
     }
-    // Load the custom marker at a smaller size so the picture doesn't
-    // cover too much of the map UI.
+
     final icon = await BitmapDescriptor.fromAssetImage(
       const ImageConfiguration(size: Size(24, 24)),
+
       asset,
     );
     setState(() {
@@ -147,6 +148,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
             ? '${widget.serviceType} on the way'
             : 'Request ${widget.serviceType}'),
       ),
+
       body: Stack(
         children: [
           GoogleMap(
@@ -183,6 +185,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
             ),
           ),
         ],
+
       ),
     );
   }
@@ -196,6 +199,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
       )
     };
 
+
     if (_specialistAssigned) {
       for (var specialist in _specialists) {
         markers.add(
@@ -208,6 +212,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
           ),
         );
       }
+
     }
 
     return markers;
@@ -215,6 +220,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
 
   Set<Polyline> _buildPolylines(LatLng clientLatLng) {
     final Set<Polyline> lines = {};
+
     if (_specialistAssigned) {
       int idx = 0;
       for (var specialist in _specialists) {
@@ -225,6 +231,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
           width: 3,
         ));
       }
+
     }
     return lines;
   }
