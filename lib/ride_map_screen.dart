@@ -19,6 +19,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
   late GoogleMapController _mapController;
   LocationData? _clientLocation;
   final Location _location = Location();
+  StreamSubscription<LocationData>? _locSub;
   Timer? _movementTimer;
   BitmapDescriptor? _specialistIcon;
 
@@ -55,6 +56,13 @@ class _RideMapScreenState extends State<RideMapScreen> {
     // Load the custom marker at a smaller size so the picture doesn't
     // cover too much of the map UI.
     final icon = await BitmapDescriptor.fromAssetImage(
+
+      _locSub = _location.onLocationChanged.listen((newLoc) {
+        setState(() {
+          _clientLocation = newLoc;
+        });
+      });
+    _locSub?.cancel();
       const ImageConfiguration(size: Size(40, 40)),
 
       asset,
