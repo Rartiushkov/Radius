@@ -51,6 +51,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
       default:
         asset = 'assets/images/specialist.png';
     }
+
     // Load the custom marker at a smaller size so the picture doesn't
     // cover too much of the map UI.
     final icon = await BitmapDescriptor.fromAssetImage(

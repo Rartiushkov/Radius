@@ -24,6 +24,7 @@ class _SpecialistScreenState extends State<SpecialistScreen> {
   @override
   void initState() {
     super.initState();
+
     _initLocation();
   }
 
@@ -59,8 +60,6 @@ class _SpecialistScreenState extends State<SpecialistScreen> {
       Polyline(
         polylineId: const PolylineId('route'),
         points: [_specialistLocation!, _clientLocation],
-        color: Colors.blueAccent,
-        width: 3,
       )
     };
   }
