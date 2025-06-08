@@ -59,14 +59,18 @@ class _RideMapScreenState extends State<RideMapScreen> {
         asset = 'assets/images/specialist.png';
     }
 
-    final icon = await BitmapDescriptor.fromAssetImage(
-      const ImageConfiguration(size: Size(24, 24)),
-
-      asset,
-    );
-    setState(() {
-      _specialistIcon = icon;
-    });
+    try {
+      final icon = await BitmapDescriptor.fromAssetImage(
+        const ImageConfiguration(size: Size(24, 24)),
+        asset,
+      );
+      if (!mounted) return;
+      setState(() {
+        _specialistIcon = icon;
+      });
+    } catch (e) {
+      debugPrint('Failed to load specialist icon: $e');
+    }
   }
 
   Future<void> _initLocation() async {
@@ -121,14 +125,22 @@ class _RideMapScreenState extends State<RideMapScreen> {
       _isRequesting = true;
     });
 
-    await FirebaseFirestore.instance.collection('requests').add({
-      'userId': FirebaseAuth.instance.currentUser?.uid,
-      'latitude': _clientLocation!.latitude,
-      'longitude': _clientLocation!.longitude,
-      'serviceType': widget.serviceType,
-      'status': 'pending',
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+    try {
+      await FirebaseFirestore.instance.collection('requests').add({
+        'userId': FirebaseAuth.instance.currentUser?.uid,
+        'latitude': _clientLocation!.latitude,
+        'longitude': _clientLocation!.longitude,
+        'serviceType': widget.serviceType,
+        'status': 'pending',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to log request: $e')),
+        );
+      }
+    }
 
     await Future.delayed(const Duration(seconds: 3));
     if (!mounted) return;
