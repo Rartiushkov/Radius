@@ -27,7 +27,6 @@ class _RideMapScreenState extends State<RideMapScreen> {
   bool _isRequesting = false;
   bool _specialistAssigned = false;
   bool _locationConfirmed = false;
-
   String? _requestDocId;
 
 
@@ -74,6 +73,37 @@ class _RideMapScreenState extends State<RideMapScreen> {
     } catch (e) {
       debugPrint('Failed to load specialist icon: $e');
     }
+
+
+  }
+
+  Future<void> _checkExistingRequest() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final query = await FirebaseFirestore.instance
+        .collection("requests")
+        .where("userId", isEqualTo: uid)
+        .where("status", whereIn: ["pending", "assigned"])
+        .limit(1)
+        .get();
+    if (query.docs.isNotEmpty) {
+      final data = query.docs.first.data();
+      _requestDocId = query.docs.first.id;
+      _clientLocation ??= LocationData.fromMap({
+        "latitude": data["latitude"],
+        "longitude": data["longitude"],
+      });
+      final status = data["status"] as String? ?? "pending";
+      setState(() {
+        _locationConfirmed = true;
+        _isRequesting = status == "pending";
+        _specialistAssigned = status == "assigned";
+      });
+      if (status == "assigned") {
+        _startSpecialistMovement();
+      }
+    }
+  }
 
   Future<void> _checkExistingRequest() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -172,7 +202,6 @@ class _RideMapScreenState extends State<RideMapScreen> {
         'status': 'pending',
         'createdAt': FieldValue.serverTimestamp(),
       });
-
       _requestDocId = doc.id;
 
     } catch (e) {
