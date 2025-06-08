@@ -28,6 +28,9 @@ class _RideMapScreenState extends State<RideMapScreen> {
   bool _specialistAssigned = false;
   bool _locationConfirmed = false;
 
+  String? _requestDocId;
+
+
 
   // Only a single specialist is shown on the map. Additional demo
   // markers were removed so users don't see multiple moving points.
@@ -40,7 +43,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
   void initState() {
     super.initState();
     _loadSpecialistIcon();
-    _initLocation();
+    _checkExistingRequest().then((_) => _initLocation());
   }
 
   Future<void> _loadSpecialistIcon() async {
@@ -71,7 +74,35 @@ class _RideMapScreenState extends State<RideMapScreen> {
     } catch (e) {
       debugPrint('Failed to load specialist icon: $e');
     }
+
+  Future<void> _checkExistingRequest() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final query = await FirebaseFirestore.instance
+        .collection("requests")
+        .where("userId", isEqualTo: uid)
+        .where("status", whereIn: ["pending", "assigned"])
+        .limit(1)
+        .get();
+    if (query.docs.isNotEmpty) {
+      final data = query.docs.first.data();
+      _requestDocId = query.docs.first.id;
+      _clientLocation ??= LocationData.fromMap({
+        "latitude": data["latitude"],
+        "longitude": data["longitude"],
+      });
+      final status = data["status"] as String? ?? "pending";
+      setState(() {
+        _locationConfirmed = true;
+        _isRequesting = status == "pending";
+        _specialistAssigned = status == "assigned";
+      });
+      if (status == "assigned") {
+        _startSpecialistMovement();
+      }
+    }
   }
+
 
   Future<void> _initLocation() async {
     try {
@@ -88,16 +119,21 @@ class _RideMapScreenState extends State<RideMapScreen> {
       }
 
       final locData = await _location.getLocation();
-      setState(() {
-        _clientLocation = locData;
-        _locationConfirmed = true;
-      });
 
-      _locSub = _location.onLocationChanged.listen((newLoc) {
+      if (_clientLocation == null) {
         setState(() {
-          _clientLocation = newLoc;
+          _clientLocation = locData;
           _locationConfirmed = true;
         });
+      }
+
+      _locSub = _location.onLocationChanged.listen((newLoc) {
+        if (!_isRequesting && !_specialistAssigned) {
+          setState(() {
+            _clientLocation = newLoc;
+            _locationConfirmed = true;
+          });
+        }
       });
     } catch (e) {
       print('Location error: $e');
@@ -126,7 +162,9 @@ class _RideMapScreenState extends State<RideMapScreen> {
     });
 
     try {
-      await FirebaseFirestore.instance.collection('requests').add({
+
+      final doc = await FirebaseFirestore.instance.collection("requests").add({
+
         'userId': FirebaseAuth.instance.currentUser?.uid,
         'latitude': _clientLocation!.latitude,
         'longitude': _clientLocation!.longitude,
@@ -134,6 +172,9 @@ class _RideMapScreenState extends State<RideMapScreen> {
         'status': 'pending',
         'createdAt': FieldValue.serverTimestamp(),
       });
+
+      _requestDocId = doc.id;
+
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -143,6 +184,12 @@ class _RideMapScreenState extends State<RideMapScreen> {
     }
 
     await Future.delayed(const Duration(seconds: 3));
+    if (_requestDocId != null) {
+      await FirebaseFirestore.instance
+          .collection("requests")
+          .doc(_requestDocId)
+          .update({"status": "assigned"});
+    }
     if (!mounted) return;
     setState(() {
       _isRequesting = false;
@@ -150,6 +197,23 @@ class _RideMapScreenState extends State<RideMapScreen> {
     });
     _startSpecialistMovement();
   }
+  Future<void> _cancelRequest() async {
+    _movementTimer?.cancel();
+    if (_requestDocId != null) {
+      await FirebaseFirestore.instance
+          .collection("requests")
+          .doc(_requestDocId)
+          .update({"status": "canceled"});
+      _requestDocId = null;
+    }
+    if (mounted) {
+      setState(() {
+        _isRequesting = false;
+        _specialistAssigned = false;
+      });
+    }
+  }
+
 
   @override
   void dispose() {
@@ -229,6 +293,18 @@ class _RideMapScreenState extends State<RideMapScreen> {
                           : 'Request Specialist',
                     ),
                   ),
+
+                if (_isRequesting || _specialistAssigned)
+                  const SizedBox(height: 8),
+                if (_isRequesting || _specialistAssigned)
+                  ElevatedButton(
+                    onPressed: _cancelRequest,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                    ),
+                    child: const Text('Cancel'),
+                  ),
+
               ],
             ),
           ),
