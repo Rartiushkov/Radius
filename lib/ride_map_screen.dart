@@ -54,27 +54,36 @@ class _RideMapScreenState extends State<RideMapScreen> {
       case 'mechanic':
         asset = 'assets/images/mechanic.png';
         break;
-      case 'lawyer':
-        asset = 'assets/images/lawyer.png';
-        break;
-      default:
-        asset = 'assets/images/specialist.png';
-    }
 
     try {
-      final icon = await BitmapDescriptor.fromAssetImage(
-        const ImageConfiguration(size: Size(24, 24)),
-        asset,
-      );
-      if (!mounted) return;
-      setState(() {
-        _specialistIcon = icon;
-      });
-    } catch (e) {
-      debugPrint('Failed to load specialist icon: $e');
-    }
-
-
+      final query = await FirebaseFirestore.instance
+          .collection("requests")
+          .where("userId", isEqualTo: uid)
+          .where("status", whereIn: ["pending", "assigned"])
+          .limit(1)
+          .get();
+      if (query.docs.isNotEmpty) {
+        final data = query.docs.first.data();
+        _requestDocId = query.docs.first.id;
+        _clientLocation ??= LocationData.fromMap({
+          "latitude": data["latitude"],
+          "longitude": data["longitude"],
+        });
+        final status = data["status"] as String? ?? "pending";
+        setState(() {
+          _locationConfirmed = true;
+          _isRequesting = status == "pending";
+          _specialistAssigned = status == "assigned";
+        });
+        if (status == "assigned") {
+          _startSpecialistMovement();
+        }
+      }
+    } on FirebaseException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Request lookup failed: ${e.message}')),
+        );
   }
 
   Future<void> _checkExistingRequest() async {
@@ -134,7 +143,23 @@ class _RideMapScreenState extends State<RideMapScreen> {
   }
 
 
-  Future<void> _initLocation() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please sign in to request a specialist.')),
+        );
+      }
+      return;
+    }
+
+        'userId': uid,
+    } on FirebaseException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to log request: ${e.message}')),
+        );
+      }
     try {
       bool serviceEnabled = await _location.serviceEnabled();
       if (!serviceEnabled) {
