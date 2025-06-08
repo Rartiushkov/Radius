@@ -75,7 +75,12 @@ class _SwipeHomeState extends State<SwipeHome> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Image.asset(page.iconPath, height: 120),
+                    Image.asset(
+                      page.iconPath,
+                      height: 120,
+                      errorBuilder: (_, __, ___) =>
+                          const Icon(Icons.broken_image, size: 120),
+                    ),
                     const SizedBox(height: 20),
                     Text(page.title, style: Theme.of(context).textTheme.headlineMedium),
                     const SizedBox(height: 10),
