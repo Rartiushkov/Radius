@@ -73,11 +73,13 @@ class _RideMapScreenState extends State<RideMapScreen> {
       debugPrint('Failed to load specialist icon: $e');
     }
 
+
   }
 
   Future<void> _checkExistingRequest() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
+
 
     try {
       final query = await FirebaseFirestore.instance
@@ -108,6 +110,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Request lookup failed: ${e.message}')),
         );
+
       }
     }
   }
@@ -128,6 +131,8 @@ class _RideMapScreenState extends State<RideMapScreen> {
       }
 
       final locData = await _location.getLocation();
+
+
       if (_clientLocation == null) {
         setState(() {
           _clientLocation = locData;
@@ -165,6 +170,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
   Future<void> _requestSpecialist() async {
     if (_clientLocation == null) return;
 
+
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
       if (mounted) {
@@ -180,6 +186,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
     });
 
     try {
+
       final doc = await FirebaseFirestore.instance.collection("requests").add({
         'userId': uid,
         'latitude': _clientLocation!.latitude,
@@ -189,6 +196,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
         'createdAt': FieldValue.serverTimestamp(),
       });
       _requestDocId = doc.id;
+
     } on FirebaseException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -313,6 +321,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
                           : 'Request Specialist',
                     ),
                   ),
+
                 if (_isRequesting || _specialistAssigned)
                   const SizedBox(height: 8),
                 if (_isRequesting || _specialistAssigned)
@@ -323,6 +332,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
                     ),
                     child: const Text('Cancel'),
                   ),
+
               ],
             ),
           ),
