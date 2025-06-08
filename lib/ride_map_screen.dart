@@ -24,6 +24,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
   BitmapDescriptor? _specialistIcon;
   bool _isRequesting = false;
   bool _specialistAssigned = false;
+  bool _locationConfirmed = false;
 
 
   // Only a single specialist is shown on the map. Additional demo
@@ -83,11 +84,13 @@ class _RideMapScreenState extends State<RideMapScreen> {
       final locData = await _location.getLocation();
       setState(() {
         _clientLocation = locData;
+        _locationConfirmed = true;
       });
 
       _locSub = _location.onLocationChanged.listen((newLoc) {
         setState(() {
           _clientLocation = newLoc;
+          _locationConfirmed = true;
         });
       });
     } catch (e) {
@@ -165,6 +168,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
                   'latitude': pos.latitude,
                   'longitude': pos.longitude,
                 });
+                _locationConfirmed = false;
               });
             },
             markers: _buildMarkers(clientLatLng),
@@ -176,12 +180,30 @@ class _RideMapScreenState extends State<RideMapScreen> {
             bottom: 20,
             left: 20,
             right: 20,
-            child: ElevatedButton(
-              onPressed:
-                  _specialistAssigned || _isRequesting ? null : _requestSpecialist,
-              child: Text(
-                _specialistAssigned ? 'Specialist en route' : 'Request Specialist',
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!_locationConfirmed &&
+                    !_specialistAssigned &&
+                    !_isRequesting)
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() => _locationConfirmed = true);
+                    },
+                    child: const Text('Confirm Location'),
+                  ),
+                if (_locationConfirmed)
+                  ElevatedButton(
+                    onPressed: _specialistAssigned || _isRequesting
+                        ? null
+                        : _requestSpecialist,
+                    child: Text(
+                      _specialistAssigned
+                          ? 'Specialist en route'
+                          : 'Request Specialist',
+                    ),
+                  ),
+              ],
             ),
           ),
         ],
