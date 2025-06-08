@@ -47,6 +47,9 @@ class _RideMapScreenState extends State<RideMapScreen> {
   }
 
   Future<void> _loadSpecialistIcon() async {
+
+  }
+
     String asset;
     switch (widget.serviceType.toLowerCase()) {
       case 'doctor':
