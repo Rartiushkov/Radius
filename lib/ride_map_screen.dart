@@ -27,7 +27,9 @@ class _RideMapScreenState extends State<RideMapScreen> {
   bool _isRequesting = false;
   bool _specialistAssigned = false;
   bool _locationConfirmed = false;
+
   String? _requestDocId;
+
 
 
   // Only a single specialist is shown on the map. Additional demo
@@ -72,6 +74,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
     } catch (e) {
       debugPrint('Failed to load specialist icon: $e');
     }
+
   Future<void> _checkExistingRequest() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
@@ -116,6 +119,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
       }
 
       final locData = await _location.getLocation();
+
       if (_clientLocation == null) {
         setState(() {
           _clientLocation = locData;
@@ -158,7 +162,9 @@ class _RideMapScreenState extends State<RideMapScreen> {
     });
 
     try {
+
       final doc = await FirebaseFirestore.instance.collection("requests").add({
+
         'userId': FirebaseAuth.instance.currentUser?.uid,
         'latitude': _clientLocation!.latitude,
         'longitude': _clientLocation!.longitude,
@@ -166,7 +172,9 @@ class _RideMapScreenState extends State<RideMapScreen> {
         'status': 'pending',
         'createdAt': FieldValue.serverTimestamp(),
       });
+
       _requestDocId = doc.id;
+
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -285,6 +293,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
                           : 'Request Specialist',
                     ),
                   ),
+
                 if (_isRequesting || _specialistAssigned)
                   const SizedBox(height: 8),
                 if (_isRequesting || _specialistAssigned)
@@ -295,6 +304,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
                     ),
                     child: const Text('Cancel'),
                   ),
+
               ],
             ),
           ),
