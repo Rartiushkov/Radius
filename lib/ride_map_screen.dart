@@ -5,6 +5,8 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class RideMapScreen extends StatefulWidget {
   final String serviceType;
@@ -113,9 +115,21 @@ class _RideMapScreenState extends State<RideMapScreen> {
   }
 
   Future<void> _requestSpecialist() async {
+    if (_clientLocation == null) return;
+
     setState(() {
       _isRequesting = true;
     });
+
+    await FirebaseFirestore.instance.collection('requests').add({
+      'userId': FirebaseAuth.instance.currentUser?.uid,
+      'latitude': _clientLocation!.latitude,
+      'longitude': _clientLocation!.longitude,
+      'serviceType': widget.serviceType,
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
     await Future.delayed(const Duration(seconds: 3));
     if (!mounted) return;
     setState(() {
