@@ -30,6 +30,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
   String? _requestDocId;
 
 
+
   // Only a single specialist is shown on the map. Additional demo
   // markers were removed so users don't see multiple moving points.
   final List<_Specialist> _specialists = [
@@ -73,6 +74,35 @@ class _RideMapScreenState extends State<RideMapScreen> {
       debugPrint('Failed to load specialist icon: $e');
     }
 
+
+  }
+
+  Future<void> _checkExistingRequest() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final query = await FirebaseFirestore.instance
+        .collection("requests")
+        .where("userId", isEqualTo: uid)
+        .where("status", whereIn: ["pending", "assigned"])
+        .limit(1)
+        .get();
+    if (query.docs.isNotEmpty) {
+      final data = query.docs.first.data();
+      _requestDocId = query.docs.first.id;
+      _clientLocation ??= LocationData.fromMap({
+        "latitude": data["latitude"],
+        "longitude": data["longitude"],
+      });
+      final status = data["status"] as String? ?? "pending";
+      setState(() {
+        _locationConfirmed = true;
+        _isRequesting = status == "pending";
+        _specialistAssigned = status == "assigned";
+      });
+      if (status == "assigned") {
+        _startSpecialistMovement();
+      }
+    }
   }
 
   Future<void> _checkExistingRequest() async {
@@ -119,6 +149,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
       }
 
       final locData = await _location.getLocation();
+
       if (_clientLocation == null) {
         setState(() {
           _clientLocation = locData;
@@ -161,7 +192,9 @@ class _RideMapScreenState extends State<RideMapScreen> {
     });
 
     try {
+
       final doc = await FirebaseFirestore.instance.collection("requests").add({
+
         'userId': FirebaseAuth.instance.currentUser?.uid,
         'latitude': _clientLocation!.latitude,
         'longitude': _clientLocation!.longitude,
@@ -170,6 +203,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
         'createdAt': FieldValue.serverTimestamp(),
       });
       _requestDocId = doc.id;
+
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -288,6 +322,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
                           : 'Request Specialist',
                     ),
                   ),
+
                 if (_isRequesting || _specialistAssigned)
                   const SizedBox(height: 8),
                 if (_isRequesting || _specialistAssigned)
@@ -298,6 +333,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
                     ),
                     child: const Text('Cancel'),
                   ),
+
               ],
             ),
           ),
