@@ -30,7 +30,6 @@ class _RideMapScreenState extends State<RideMapScreen> {
   String? _requestDocId;
 
 
-
   // Only a single specialist is shown on the map. Additional demo
   // markers were removed so users don't see multiple moving points.
   final List<_Specialist> _specialists = [
@@ -80,55 +79,38 @@ class _RideMapScreenState extends State<RideMapScreen> {
   Future<void> _checkExistingRequest() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    final query = await FirebaseFirestore.instance
-        .collection("requests")
-        .where("userId", isEqualTo: uid)
-        .where("status", whereIn: ["pending", "assigned"])
-        .limit(1)
-        .get();
-    if (query.docs.isNotEmpty) {
-      final data = query.docs.first.data();
-      _requestDocId = query.docs.first.id;
-      _clientLocation ??= LocationData.fromMap({
-        "latitude": data["latitude"],
-        "longitude": data["longitude"],
-      });
-      final status = data["status"] as String? ?? "pending";
-      setState(() {
-        _locationConfirmed = true;
-        _isRequesting = status == "pending";
-        _specialistAssigned = status == "assigned";
-      });
-      if (status == "assigned") {
-        _startSpecialistMovement();
-      }
-    }
-  }
 
-  Future<void> _checkExistingRequest() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-    final query = await FirebaseFirestore.instance
-        .collection("requests")
-        .where("userId", isEqualTo: uid)
-        .where("status", whereIn: ["pending", "assigned"])
-        .limit(1)
-        .get();
-    if (query.docs.isNotEmpty) {
-      final data = query.docs.first.data();
-      _requestDocId = query.docs.first.id;
-      _clientLocation ??= LocationData.fromMap({
-        "latitude": data["latitude"],
-        "longitude": data["longitude"],
-      });
-      final status = data["status"] as String? ?? "pending";
-      setState(() {
-        _locationConfirmed = true;
-        _isRequesting = status == "pending";
-        _specialistAssigned = status == "assigned";
-      });
-      if (status == "assigned") {
-        _startSpecialistMovement();
+
+    try {
+      final query = await FirebaseFirestore.instance
+          .collection("requests")
+          .where("userId", isEqualTo: uid)
+          .where("status", whereIn: ["pending", "assigned"])
+          .limit(1)
+          .get();
+      if (query.docs.isNotEmpty) {
+        final data = query.docs.first.data();
+        _requestDocId = query.docs.first.id;
+        _clientLocation ??= LocationData.fromMap({
+          "latitude": data["latitude"],
+          "longitude": data["longitude"],
+        });
+        final status = data["status"] as String? ?? "pending";
+        setState(() {
+          _locationConfirmed = true;
+          _isRequesting = status == "pending";
+          _specialistAssigned = status == "assigned";
+        });
+        if (status == "assigned") {
+          _startSpecialistMovement();
+        }
+      }
+    } on FirebaseException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Request lookup failed: ${e.message}')),
+        );
+
       }
     }
   }
@@ -149,6 +131,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
       }
 
       final locData = await _location.getLocation();
+
 
       if (_clientLocation == null) {
         setState(() {
@@ -187,6 +170,17 @@ class _RideMapScreenState extends State<RideMapScreen> {
   Future<void> _requestSpecialist() async {
     if (_clientLocation == null) return;
 
+
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please sign in to request a specialist.')),
+        );
+      }
+      return;
+    }
+
     setState(() {
       _isRequesting = true;
     });
@@ -194,8 +188,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
     try {
 
       final doc = await FirebaseFirestore.instance.collection("requests").add({
-
-        'userId': FirebaseAuth.instance.currentUser?.uid,
+        'userId': uid,
         'latitude': _clientLocation!.latitude,
         'longitude': _clientLocation!.longitude,
         'serviceType': widget.serviceType,
@@ -204,6 +197,12 @@ class _RideMapScreenState extends State<RideMapScreen> {
       });
       _requestDocId = doc.id;
 
+    } on FirebaseException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to log request: ${e.message}')),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
