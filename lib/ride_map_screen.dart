@@ -5,6 +5,8 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class RideMapScreen extends StatefulWidget {
   final String serviceType;
@@ -24,6 +26,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
   BitmapDescriptor? _specialistIcon;
   bool _isRequesting = false;
   bool _specialistAssigned = false;
+  bool _locationConfirmed = false;
 
 
   // Only a single specialist is shown on the map. Additional demo
@@ -56,14 +59,18 @@ class _RideMapScreenState extends State<RideMapScreen> {
         asset = 'assets/images/specialist.png';
     }
 
-    final icon = await BitmapDescriptor.fromAssetImage(
-      const ImageConfiguration(size: Size(24, 24)),
-
-      asset,
-    );
-    setState(() {
-      _specialistIcon = icon;
-    });
+    try {
+      final icon = await BitmapDescriptor.fromAssetImage(
+        const ImageConfiguration(size: Size(24, 24)),
+        asset,
+      );
+      if (!mounted) return;
+      setState(() {
+        _specialistIcon = icon;
+      });
+    } catch (e) {
+      debugPrint('Failed to load specialist icon: $e');
+    }
   }
 
   Future<void> _initLocation() async {
@@ -83,11 +90,13 @@ class _RideMapScreenState extends State<RideMapScreen> {
       final locData = await _location.getLocation();
       setState(() {
         _clientLocation = locData;
+        _locationConfirmed = true;
       });
 
       _locSub = _location.onLocationChanged.listen((newLoc) {
         setState(() {
           _clientLocation = newLoc;
+          _locationConfirmed = true;
         });
       });
     } catch (e) {
@@ -110,9 +119,29 @@ class _RideMapScreenState extends State<RideMapScreen> {
   }
 
   Future<void> _requestSpecialist() async {
+    if (_clientLocation == null) return;
+
     setState(() {
       _isRequesting = true;
     });
+
+    try {
+      await FirebaseFirestore.instance.collection('requests').add({
+        'userId': FirebaseAuth.instance.currentUser?.uid,
+        'latitude': _clientLocation!.latitude,
+        'longitude': _clientLocation!.longitude,
+        'serviceType': widget.serviceType,
+        'status': 'pending',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to log request: $e')),
+        );
+      }
+    }
+
     await Future.delayed(const Duration(seconds: 3));
     if (!mounted) return;
     setState(() {
@@ -165,6 +194,7 @@ class _RideMapScreenState extends State<RideMapScreen> {
                   'latitude': pos.latitude,
                   'longitude': pos.longitude,
                 });
+                _locationConfirmed = false;
               });
             },
             markers: _buildMarkers(clientLatLng),
@@ -176,12 +206,30 @@ class _RideMapScreenState extends State<RideMapScreen> {
             bottom: 20,
             left: 20,
             right: 20,
-            child: ElevatedButton(
-              onPressed:
-                  _specialistAssigned || _isRequesting ? null : _requestSpecialist,
-              child: Text(
-                _specialistAssigned ? 'Specialist en route' : 'Request Specialist',
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!_locationConfirmed &&
+                    !_specialistAssigned &&
+                    !_isRequesting)
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() => _locationConfirmed = true);
+                    },
+                    child: const Text('Confirm Location'),
+                  ),
+                if (_locationConfirmed)
+                  ElevatedButton(
+                    onPressed: _specialistAssigned || _isRequesting
+                        ? null
+                        : _requestSpecialist,
+                    child: Text(
+                      _specialistAssigned
+                          ? 'Specialist en route'
+                          : 'Request Specialist',
+                    ),
+                  ),
+              ],
             ),
           ),
         ],
